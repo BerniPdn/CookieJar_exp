@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Experimento Prueba</title>
+    <script src="https://unpkg.com/jspsych@8.2.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.0.0"></script>
+    <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet">
+  </head>
+  <body>
+  <script>
+
+    const jsPsych = initJsPsych();
+
+    const consentimiento = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<h2>Consentimiento aca</h2>',
+    choices: ['Siguiente']
+    }
+
+    const bienvenida = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: /*html*/ `
+        <h2>¡Te damos la bienvenida al experimento!</h2>
+        <h3>Para evitar distracciones te pedimos que: </h3> 
+        <p>1. Cierres otras pesatañas y aplicaciones que generen notificaciones</p>
+        <p>2. Pongas el telefono en modo no molestar</p>
+        <p>3. Minimices distracciones de tu entorno, intenando estar en un lugar tranquilo</p>
+        `,
+    choices: ['Siguiente']
+    }
+
+    const pantalla = {
+    type: jsPsychFullscreen,
+    fullscreen_mode: true,
+    message: '<h3>El experimento ira a pantalla completa cuando presiones el boton que se encuentre abajo</h3>',
+    button_label: 'Siguiente'
+    }
+
+    const calibracion = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: /*html*/ `
+        <h2>Verificación de micrófono</h2>
+        <p>Hablá en voz alta y fijate que la barra se mueva.</p>
+        <div style="width: 400px; margin: 20px auto;">
+        <div id="barra-container" style="background: #eee; border-radius: 8px; height: 30px; overflow: hidden;">
+            <div id="barra-audio" style="height: 100%; width: 0%; background: green; transition: width 0.1s;"></div>
+        </div>
+        </div>
+
+        <br> 
+
+        <h2>Verificación de cámara</h2>
+        <p>Asegurate que tu cara este en el cuadrado verde que aparece en la pantalla de abajo e intenta no moverte
+            mucho durante el experimento</p>
+        <div style="position: relative; width: inline-block;">
+
+            <video 
+                id="preview-camara" 
+                autoplay 
+                muted 
+                style="width: 500px; 
+                border-radius: 8px;">
+            </video>
+
+            <div style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 250px;
+                height: 250px;
+                border: 4px solid green;
+                transform: translate(-50%, -50%);
+                border-radius: 10px;
+                pointer-events: none;
+            ">
+            </div>
+        </div>
+        <p id="estado-mic-cam" style="color: gray;">Iniciando micrófono y camara...</p>
+        <button id="btn-calibracion" disabled>
+             Calibración de audio y cámara lista --> Siguiente
+        </button>
+    `,
+    choices: [],
+
+    on_load: function() {
+        navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+        .then(function(stream) {
+            document.getElementById('estado-mic-cam').textContent = 'Micrófono y camara activos.';
+            document.getElementById('estado-mic-cam').style.color = 'green';
+            document.getElementById('btn-calibracion')
+                .addEventListener('click', function() {
+                    jsPsych.finishTrial();
+            });
+
+            const video = document.getElementById('preview-camara');
+            video.srcObject = stream;
+            
+            const audioContext = new AudioContext();
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            function updateBar() {
+            analyser.getByteFrequencyData(dataArray);
+            const max = Math.max(...dataArray);
+            const porcentaje = Math.max(0, Math.min((max - 80) / 3, 100));
+            document.getElementById('barra-audio').style.width = porcentaje + '%';
+
+            if (porcentaje > 50) {
+                document.getElementById('btn-calibracion').disabled = false;
+            }
+
+            requestAnimationFrame(updateBar);
+            }
+            updateBar();
+        })
+        .catch(function() {
+            document.getElementById('estado-mic-cam').textContent = 'No se pudo acceder al micrófono y/o la camara. Revisá los permisos.';
+            document.getElementById('estado-mic-cam').style.color = 'red';
+        });
+    }
+    }
+
+    const instrucciones = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: /*html*/ `
+        <h2>Instrucciones</h2>
+        <h3>Tu tarea principal sera describir lo que ves en las imagenes con el mayor detalle posible en 1 minuto</h3> 
+        <p>1. Presioná <b>Grabar</b> y describí lo que ves.</p>
+        <p>2. Cuando termines, presioná <b>Parar</b>.</p>
+    `, // cambiar el tiempo
+    choices: ['Entendido, continuar']
+    }
+
+    const lamina_original = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: /*html*/ `
+        <h2>Imagen a Describir</h2>
+        <img 
+            src="imagenes/lamina_original.jpeg" 
+            style="width: 700px; border-radius: 10px; margin: 20px 0;"
+        >
+        <p>1. Presioná <b>Grabar</b> y describí lo que ves.</p>
+        <p>2. Cuando termines, presioná <b>Parar</b>.</p>
+    `, // cambiar el tiempo
+    choices: ['Enviar']
+    }
+
+    const fin = {
+    type: jsPsychHtmlButtonResponse,
+    stimulus: '<h1>¡Muchas gracias!</h1><p>Tus respuestas fueron guardadas.</p>',
+    choices: []
+    }
+
+jsPsych.run([consentimiento, bienvenida, pantalla, calibracion, instrucciones, lamina_original, fin]);
+  </script>
+  </body>
+</html>
