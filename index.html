@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Experimento Prueba</title>
+    <title>Experimento CookieJar</title>
     <script src="https://unpkg.com/jspsych@8.2.3"></script>
     <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.0.0"></script>
@@ -44,12 +44,13 @@
             type: jsPsychHtmlButtonResponse,
             stimulus: /*html*/ `
         <h2>Verificación de micrófono</h2>
-        <p>Hablá en voz alta y fijate que la barra se mueva.</p>
-        <div style="width: 400px; margin: 20px auto;">
-        <div id="barra-container" style="background: #eee; border-radius: 8px; height: 30px; overflow: hidden;">
+        <p>Hablá en voz alta y fijate que la barra se mueva. Si la barra no se mueve intenta hablar un poco mas fuerte.</p> 
+        <div style="width: 600px; margin: 20px auto;">
+        <div id="barra-container" style="background: #eee; border-radius: 8px; height: 50px; overflow: hidden;">
             <div id="barra-audio" style="height: 100%; width: 0%; background: green; transition: width 0.1s;"></div>
         </div>
         </div>
+        <p>Intenta mantener este volumen de voz durante todo el experimento</p>
 
         <br> 
 
@@ -61,7 +62,7 @@
             id="contenedor-camara"
             style="
             position: relative;
-            width: 500px;
+            width: 600px;
             height: 375px;
             margin: 0 auto;
             background: #ddd;
@@ -131,7 +132,8 @@
                         source.connect(analyser);
 
                         const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
+                        
+                        // Calibracion del audio
                         function updateBar() {
                             analyser.getByteFrequencyData(dataArray);
 
@@ -143,7 +145,7 @@
                             const promedio = sum / dataArray.length;
 
                             // Promedio de sonidos - tratando de account for el ruioo de fondo
-                            const porcentaje = Math.max(0, Math.min((promedio - 35) * 3, 100));
+                            const porcentaje = Math.max(0, Math.min((promedio - 40) * 3, 100)); //Fijarse si el 40 sirve
 
                             document.getElementById('barra-audio').style.width = porcentaje + '%';
 
@@ -168,7 +170,6 @@
             stimulus: /*html*/ `
         <h2>Instrucciones</h2>
         <h3>Tu tarea principal sera describir lo que ves en las imagenes con el mayor detalle posible en 1 minuto</h3> 
-        <p>Para eso segui los siguientes pasos: </p>
         <p>1. Presioná <b>Grabar</b> y describí lo que ves.</p>
         <p>2. Cuando termines, presioná <b>Parar</b>. Esto va a parar la grabacion y enviarla</p>
         <p>3. Presioná <b>Siguiente</b> para pasar a la siguiente imagen.</p>
