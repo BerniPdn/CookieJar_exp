@@ -2,8 +2,8 @@
 <html>
 
 <head>
-    <meta charset="UTF-8">
     <title>Experimento CookieJar</title>
+    <meta charset="UTF-8">
     <script src="https://unpkg.com/jspsych@8.2.3"></script>
     <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.0.0"></script>
@@ -36,8 +36,8 @@
         const pantalla = {
             type: jsPsychFullscreen,
             fullscreen_mode: true,
-            message: '<h3>El experimento ira a pantalla completa cuando presiones el boton que se encuentre abajo</h3>',
-            button_label: 'Siguiente'
+            message: '<h3>El experimento ira a pantalla completa cuando presiones el boton que se encuentra abajo</h3>',
+            button_label: 'Ir a pantalla completa'
         }
 
         const calibracion = {
@@ -177,7 +177,7 @@
             choices: ['Entendido, continuar']
         }
 
-        const lamina_original = {
+        const lamina_original = { // aca hay que grabar el audio y el video - deberia grabarlo en conjunto o separado??
             type: jsPsychHtmlButtonResponse,
             stimulus: /*html*/ `
         <h2>Imagen a Describir 1 </h2>
