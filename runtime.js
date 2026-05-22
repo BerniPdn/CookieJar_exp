@@ -51,32 +51,6 @@ function recordAudio(blobArchivo, nombreArchivo) {
     .catch(error => console.error("Error al subir video:", error));
 }
 
-async function storeProgress(a_number) {
-    let url = `${protocol}://${domain}/api/v1/record_data/${run_id}/`;
-    return fetch(url, {
-        method: 'POST',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-	        "X-CSRFToken": getCookie("csrftoken")
-        },
-        body: JSON.stringify({ "progress": a_number })
-    })
-       .then(response => response.json())
-       .then(response => console.log(JSON.stringify(response)))
-}
-
-async function fetchProgress() {
-    let url = `${protocol}://${domain}/api/v1/fetch_progress/${run_id}/`;
-    return fetch(url, {
-        method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-        }
-    });
-}
-
 function endExperiment(score) {
 	return fetch(`${protocol}://${domain}/api/v1/end_run/${run_id}/`, {
 	    method: 'POST',
@@ -89,43 +63,7 @@ function endExperiment(score) {
 	})
 }
 
-
 /* App */
-
-$(document).ready(function() {
-	$('#step-1').show();
-})
-
-function stepOneDone() {
-	recordData("step one done.");
-	storeProgress(30)
-
-	$('#step-1').hide();
-	$('#step-2').show();
-
-}
-
-function stepTwoDone() {   
-	recordData([{"message": "step two done."}, {"numeric": 2}]);
-    storeProgress(70)
-	$('#step-2').hide();
-	$('#step-3').show();
-
-}
-
 async function finishExperiment() {
 	endExperiment(100)
-    .then(response => response.json())
-    .then(response => {
-		console.log(JSON.stringify(response))
-		if (response['status'] == 'OK') { 
-			$('#step-3').hide();
-			$('#experiment-end').show();
-		}
-   });
-   
-   let response = await fetchProgress();
-   let jsonResponse = await response.json();
-   alert('El progreso registrado es:' + JSON.stringify(jsonResponse['progress']));
-
 }
