@@ -25,7 +25,7 @@
         function crearTrialImagen(src, nombreArchivo = null, tiempo) {
             return {
                 type: jsPsychHtmlButtonResponse,
-                stimulus: /*html*/ `c
+                stimulus: /*html*/ `
                     <div style="width: 100%; max-width: 700px; margin: 0 auto 30px auto; text-align: center;">
                         <h2 style="margin: 0; display: inline-block;">Imagen a utilizar</h2>
                     </div>
@@ -109,9 +109,9 @@
             stimulus: /*html*/ `
                 <h2>¡Te damos la bienvenida al experimento!</h2>
                 <h3>Este experimento consiste de 3 partes. Para evitar distracciones te pedimos que:</h3>
-                <p>1. Cierres otras pesatañas y aplicaciones que generen notificaciones</p>
-                <p>2. Pongas el telefono en modo no molestar</p>
-                <p>3. Minimices distracciones de tu entorno, intenando estar en un lugar tranquilo</p>
+                <p><b>1.</b> Cierres otras pesatañas y aplicaciones que generen notificaciones</p>
+                <p><b>2.</b> Pongas el telefono en modo no molestar</p>
+                <p><b>3.</b> Minimices distracciones de tu entorno, intenando estar en un lugar tranquilo</p>
             `,
             choices: ['Siguiente']
         }
@@ -248,7 +248,7 @@
         }
 
         const instrucciones_1 = crearInstrucciones(
-            'Instrucciones Parte 1a',
+            'Instrucciones Parte 1.a',
             [
                 'Describí todo lo que está pasando en la imagen en 1 minuto. Pensá que se la estás describiendo a alguien que no puede verla.',
                 'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados y pasar a la siguiente imagen.',
@@ -257,7 +257,7 @@
         );
 
         const parte1_medio = crearInstrucciones(
-            'Parte 1b',
+            'Instrucciones Parte 1.b',
             ['Como en la Parte 1a describí todo lo que está pasando en la imagen en 1 minuto, como si se la explicaras a alguien que no puede verla.'],
             'Siguiente'
         );
