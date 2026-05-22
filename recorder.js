@@ -6,6 +6,7 @@
 let grabadorMedia = null;
 let fragmentosVideo = [];
 let intervaloTimer = null;
+let streamFisico = null;
 
 function inicializarGrabador(stream) {
     streamFisico = stream;
@@ -78,51 +79,49 @@ function iniciarTimerVisual(segundos) {
     }, 1000);
 }
 
-/**
- *  Detiene la grabación y fuerza la descarga local del archivo --> por ahora --> esto tengo que cambiarlo cuando lo sume 
- * @param {string} nombreLamina - El nombre que tendrá el archivo descargado
- */
-function frenarYDescargar(nombreLamina = "grabacion_cookiejar") { // esto tiene que ser frenar y enviar al servidor
-    if (!grabadorMedia || grabadorMedia.state === "inactive") {
-        console.error("No hay ninguna grabación activa para detener.");
-        return;
-    }
+// /**
+//  *  Detiene la grabación y fuerza la descarga local del archivo --> por ahora --> esto tengo que cambiarlo cuando lo sume 
+//  * @param {string} nombreLamina - El nombre que tendrá el archivo descargado
+//  */
+// function frenarYDescargar(nombreLamina = "grabacion_cookiejar") { // esto tiene que ser frenar y enviar al servidor
+//     if (!grabadorMedia || grabadorMedia.state === "inactive") {
+//         console.error("No hay ninguna grabación activa para detener.");
+//         return;
+//     }
 
-    // Configuramos qué pasa CUANDO SE DETENGA la grabación
-    grabadorMedia.onstop = function() {
-        console.log("Grabación detenida. Procesando archivo...");
+//     // Configuramos qué pasa CUANDO SE DETENGA la grabación
+//     grabadorMedia.onstop = function() {
+//         console.log("Grabación detenida. Procesando archivo...");
 
-        // Crear blob de video
-        const videoBlob = new Blob(fragmentosVideo, { type: 'video/webm' });
+//         // Crear blob de video
+//         const videoBlob = new Blob(fragmentosVideo, { type: 'video/webm' });
 
-        // URL temporal apuntando a la memoria
-        const urlDescarga = URL.createObjectURL(videoBlob);
+//         // URL temporal apuntando a la memoria
+//         const urlDescarga = URL.createObjectURL(videoBlob);
 
-        // Enlace invisible en el HTML
-        const enlace = document.createElement('a');
-        enlace.style.display = 'none';
-        enlace.href = urlDescarga;
-        enlace.download = `${nombreLamina}.webm`; // Nombre del archivo final
+//         // Enlace invisible en el HTML
+//         const enlace = document.createElement('a');
+//         enlace.style.display = 'none';
+//         enlace.href = urlDescarga;
+//         enlace.download = `${nombreLamina}.webm`; // Nombre del archivo final
 
-        document.body.appendChild(enlace);
-        enlace.click();
+//         document.body.appendChild(enlace);
+//         enlace.click();
         
-        // Limpieza de memoria
-        setTimeout(() => {
-            document.body.removeChild(enlace);
-            URL.revokeObjectURL(urlDescarga);
-        }, 100);
-    };
+//         // Limpieza de memoria
+//         setTimeout(() => {
+//             document.body.removeChild(enlace);
+//             URL.revokeObjectURL(urlDescarga);
+//         }, 100);
+//     };
 
-    grabadorMedia.stop();
-}
-// la idea es elimar esto totalmente
+//     grabadorMedia.stop();
+// }
+// // la idea es elimar esto totalmente
 
-/**
- * Detiene la grabación y envía el archivo de video/audio al servidor de Datapruebas.
- * @param {string} nombreLamina - Identificador de la lámina actual (ej: "lamina_cookie_original")
- */
-function frenarYEnviarServidor(nombreLamina = "grabacion_cookiejar") {
+function frenarYEnviarServidor(nombreArchivo) {
+    if (intervaloTimer) clearInterval(intervaloTimer);
+    
     if (!grabadorMedia || grabadorMedia.state === "inactive") {
         console.error("No hay ninguna grabación activa para detener.");
         return;
@@ -130,34 +129,8 @@ function frenarYEnviarServidor(nombreLamina = "grabacion_cookiejar") {
 
     grabadorMedia.onstop = function() {
         console.log("Grabación detenida. Preparando envío al servidor..."); //debug
-
         const videoBlob = new Blob(fragmentosVideo, { type: 'video/webm' });
-
-        let formData = new FormData();
-        formData.append('audio', videoBlob, `grabacion_${runId}_${nombreLamina}.webm`);
-
-        let url = `http://localhost:8000/api/v1/record_audio/${runId}/`; // https://datapruebas.org/api/v1/record_audio/<run-id>/
-        console.log(`Enviando archivo a: ${url}`); //debug
-
-        fetch(url, {
-            method: 'POST',
-            credentials: "include", 
-            headers: {
-            },
-            body: formData
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Error en el servidor: ${response.status} ${response.statusText}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("Archivo subido con éxito al servidor", data); //debug
-        })
-        .catch(error => {
-            console.error("Hubo un problema al subir el archivo:", error); //debug
-        });
+        recordAudio(videoBlob, `grabacion_${run_id}_${nombreArchivo}`)
     };
 
     grabadorMedia.stop();
@@ -169,4 +142,3 @@ function apagarCamaraYMicofono() {
         console.log("Hardware liberado y apagado.");
     }
 }
-// agregar funcion que le avise a datapruebas que el sujeto termino el experiment

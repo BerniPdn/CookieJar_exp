@@ -33,6 +33,23 @@ function recordData(aJsonObject) {
 	   
 }
 
+function recordAudio(blobArchivo, nombreArchivo) {
+    let url = `${protocol}://${domain}/api/v1/record_audio/${run_id}/`;
+    
+    let formData = new FormData();
+    formData.append('audio', blobArchivo, `${nombreArchivo}.webm`);
+
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            "X-CSRFToken": getCookie("csrftoken")
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(response => console.log("Video guardado en servidor:", JSON.stringify(response)))
+    .catch(error => console.error("Error al subir video:", error));
+}
 
 async function storeProgress(a_number) {
     let url = `${protocol}://${domain}/api/v1/record_data/${run_id}/`;
@@ -97,7 +114,7 @@ function stepTwoDone() {
 }
 
 async function finishExperiment() {
-	endExperiment(20)
+	endExperiment(100)
     .then(response => response.json())
     .then(response => {
 		console.log(JSON.stringify(response))

@@ -16,6 +16,9 @@
     <script>
 
         const jsPsych = initJsPsych();
+        if (!run_id) {
+            console.warn("ALERTA: No se detectó ningún 'run-id' en la URL. Las llamadas a la API van a fallar.");
+        }
 
         // Helpers
 
@@ -41,7 +44,16 @@
                     comenzarGrabacion()
                     iniciarTimerVisual(tiempo);
                 },
-                on_finish: () => { if (nombreArchivo) frenarYDescargar(nombreArchivo); }
+                on_finish: (data) => { 
+                    if (nombreArchivo) {
+                        frenarYEnviarServidor(nombreArchivo); 
+                        recordData({
+                            trial: nombreArchivo,
+                            rt: data.rt,
+                            timeout: data.rt === null
+                        });
+                    }
+                }
             };
         }
 
@@ -67,7 +79,17 @@
                     comenzarGrabacion()
                     iniciarTimerVisual(tiempo);
                 },
-                on_finish: () => { if (nombreArchivo) frenarYDescargar(nombreArchivo); }
+                data: { trial_id: nombreArchivo, periodo_solicitado: periodo },
+                on_finish: (data) => { 
+                    if (nombreArchivo) {
+                        frenarYEnviarServidor(nombreArchivo); 
+                        recordData({
+                            trial: nombreArchivo,
+                            rt: data.rt,
+                            timeout: data.rt === null
+                        });
+                    }
+                }
             };
         }
 
@@ -293,7 +315,7 @@
             choices: [],
             on_load: function () {
                 apagarCamaraYMicofono();
-                // add end experiment in platform (Data Pruebas)
+                finishExperiment()
             }
         }
 
