@@ -8,6 +8,8 @@
     <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.0.0"></script>
     <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet">
+    <script src="runtime.js"></script>
+    <script src="recorder.js"></script>
 </head>
 
 <body>
@@ -15,21 +17,80 @@
 
         const jsPsych = initJsPsych();
 
-        const consentimiento = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: '<h2>Consentimiento aca</h2>',
-            choices: ['Siguiente']
+        // Helpers
+
+        function crearTrialImagen(src, nombreArchivo = null, tiempo) {
+            return {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: /*html*/ `
+                    <div style="width: 100%; max-width: 700px; margin: 0 auto 30px auto; text-align: center;">
+                        <h2 style="margin: 0; display: inline-block;">Imagen a utilizar</h2>
+                    </div>
+                    
+                    <div style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+                        <span id="timer-display" style="font-size: 1.25rem; font-weight: bold; background: #eee; padding: 8px 15px; border-radius: 5px; color: #333; white-space: nowrap; border: 1px solid #ccc;">
+                            Tiempo restante: ${tiempo}s
+                        </span>
+                    </div>
+
+                    <img src="${src}" style="width: 700px; border-radius: 10px; margin: 20px 0;">
+                `,
+                choices: ['Enviar'],
+                trial_duration: tiempo * 1000,
+                on_load: () => { 
+                    comenzarGrabacion()
+                    iniciarTimerVisual(tiempo);
+                },
+                on_finish: () => { if (nombreArchivo) frenarYDescargar(nombreArchivo); }
+            };
         }
+
+        function crearTrialMemoria(nombreArchivo, periodo, tiempo) {
+            return {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: /*html*/ `
+                    <div style="width: 100%; max-width: 700px; margin: 0 auto 30px auto; text-align: center;">
+                        <h2 style="margin: 0; display: inline-block;">Memoria autobiografica situada en ${periodo}</h2>
+                    </div>
+
+                    <div style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
+                        <span id="timer-display" style="font-size: 1.25rem; font-weight: bold; background: #eee; padding: 8px 15px; border-radius: 5px; color: #333; white-space: nowrap; border: 1px solid #ccc;">
+                            Tiempo restante: ${tiempo}s
+                        </span>
+                    </div>
+
+                    <p style="text-align: center; margin-top: 20px;"> ¿Puedes contarnos sobre un evento en un lugar y tiempo especifico situado en: ${periodo}? </p>
+                `,
+                choices: ['Enviar'],
+                trial_duration: tiempo * 1000,
+                on_load: () => { 
+                    comenzarGrabacion()
+                    iniciarTimerVisual(tiempo);
+                },
+                on_finish: () => { if (nombreArchivo) frenarYDescargar(nombreArchivo); }
+            };
+        }
+
+        function crearInstrucciones(titulo, parrafos, boton = 'Entendido, continuar') {
+            const items = parrafos.map((p, i) => `<p>${i + 1}. ${p}</p>`).join('');
+            return {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `<h2>${titulo}</h2>${items}`,
+                choices: [boton]
+            };
+        }
+
+         // Trials
 
         const bienvenida = {
             type: jsPsychHtmlButtonResponse,
             stimulus: /*html*/ `
-        <h2>¡Te damos la bienvenida al experimento!</h2>
-        <h3>Para evitar distracciones te pedimos que: </h3> 
-        <p>1. Cierres otras pesatañas y aplicaciones que generen notificaciones</p>
-        <p>2. Pongas el telefono en modo no molestar</p>
-        <p>3. Minimices distracciones de tu entorno, intenando estar en un lugar tranquilo</p>
-        `,
+                <h2>¡Te damos la bienvenida al experimento!</h2>
+                <h3>Este experimento consiste de 3 partes. Para evitar distracciones te pedimos que:</h3>
+                <p>1. Cierres otras pesatañas y aplicaciones que generen notificaciones</p>
+                <p>2. Pongas el telefono en modo no molestar</p>
+                <p>3. Minimices distracciones de tu entorno, intenando estar en un lugar tranquilo</p>
+            `,
             choices: ['Siguiente']
         }
 
@@ -43,69 +104,65 @@
         const calibracion = {
             type: jsPsychHtmlButtonResponse,
             stimulus: /*html*/ `
-        <h2>Verificación de micrófono</h2>
-        <p>Hablá en voz alta y fijate que la barra se mueva. Si la barra no se mueve intenta hablar un poco mas fuerte.</p> 
-        <div style="width: 600px; margin: 20px auto;">
-        <div id="barra-container" style="background: #eee; border-radius: 8px; height: 50px; overflow: hidden;">
-            <div id="barra-audio" style="height: 100%; width: 0%; background: green; transition: width 0.1s;"></div>
-        </div>
-        </div>
-        <p>Intenta mantener este volumen de voz durante todo el experimento</p>
+                <h2>Verificación de micrófono</h2>
+                <p>Hablá en voz alta y fijate que la barra se mueva. Si la barra no se mueve intenta hablar un poco mas fuerte.</p> 
+                <div style="width: 600px; margin: 20px auto;">
+                    <div id="barra-container" style="background: #eee; border-radius: 8px; height: 50px; overflow: hidden;">
+                        <div id="barra-audio" style="height: 100%; width: 0%; background: green; transition: width 0.1s;"></div>
+                    </div>
+                </div>
 
-        <br> 
+                <br> 
 
-        <h2>Verificación de cámara</h2>
-        <p>Asegurate que tu cara este en el cuadrado verde que aparece en la pantalla de abajo e intenta no moverte
-            mucho durante el experimento</p>
-            
-            <div 
-            id="contenedor-camara"
-            style="
-            position: relative;
-            width: 600px;
-            height: 375px;
-            margin: 0 auto;
-            background: #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-            "
-            >
+                <h2>Verificación de cámara</h2>
+                <p>Asegurate que tu cara este en el cuadrado verde que aparece en la pantalla de abajo e intenta no moverte
+                    mucho durante el experimento</p>
+                    
+                    <div id="contenedor-camara"
+                        style="
+                            position: relative;
+                            width: 600px;
+                            height: 375px;
+                            margin: 0 auto;
+                            background: #ddd;
+                            border-radius: 8px;
+                            overflow: hidden;
+                        ">
 
-                <video 
-                    id="preview-camara" 
-                    autoplay 
-                    muted 
-                    playsinline
-                    style="
-                        width: 100%;
-                        height: 100%;
-                        object-fit: cover;
-                        visibility: hidden;
-                    ">
-                </video>
+                        <video id="preview-camara" 
+                            autoplay 
+                            muted 
+                            playsinline
+                            style="
+                                width: 100%;
+                                height: 100%;
+                                object-fit: cover;
+                                visibility: hidden;
+                            ">
+                        </video>
 
-        <div 
-            id="cuadrado-camara" 
-            style="
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                width: 300px;
-                height: 300px;
-                border: 4px solid green;
-                transform: translate(-50%, -50%);
-                border-radius: 10px;
-                pointer-events: none;
-                display: none;
-            ">
-        </div>
-    </div>
+                        <div id="cuadrado-camara" 
+                            style="
+                                position: absolute;
+                                top: 50%;
+                                left: 50%;
+                                width: 300px;
+                                height: 300px;
+                                border: 4px solid green;
+                                transform: translate(-50%, -50%);
+                                border-radius: 10px;
+                                pointer-events: none;
+                                display: none;
+                            ">
+                        </div>
 
-        <p id="estado-mic-cam" style="color: gray;">Iniciando micrófono y camara...</p>
-        <button id="btn-calibracion" class="jspsych-btn" disabled>
-             Calibración de audio y cámara lista
-        </button>
-    `,
+                    </div>
+
+                <p id="estado-mic-cam" style="color: gray;">Iniciando micrófono y camara...</p>
+                <button id="btn-calibracion" class="jspsych-btn" disabled>
+                    Calibración de audio y cámara lista
+                </button>
+            `,
             choices: [],
 
             on_load: function () {
@@ -113,7 +170,8 @@
                     .then(function (stream) {
                         document.getElementById('estado-mic-cam').textContent = 'Micrófono y camara activos.';
                         document.getElementById('estado-mic-cam').style.color = 'green';
-                        document.getElementById('btn-calibracion')
+                        document
+                            .getElementById('btn-calibracion')
                             .addEventListener('click', function () {
                                 jsPsych.finishTrial();
                             });
@@ -132,7 +190,7 @@
                         source.connect(analyser);
 
                         const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                        
+
                         // Calibracion del audio
                         function updateBar() {
                             analyser.getByteFrequencyData(dataArray);
@@ -145,7 +203,7 @@
                             const promedio = sum / dataArray.length;
 
                             // Promedio de sonidos - tratando de account for el ruioo de fondo
-                            const porcentaje = Math.max(0, Math.min((promedio - 40) * 3, 100)); //Fijarse si el 40 sirve
+                            const porcentaje = Math.max(0, Math.min((promedio - 30) * 3, 100)); //Fijarse si el 40 sirve
 
                             document.getElementById('barra-audio').style.width = porcentaje + '%';
 
@@ -157,47 +215,107 @@
                             requestAnimationFrame(updateBar);
                         }
                         updateBar();
+                        inicializarGrabador(stream);
                     })
                     .catch(function () {
-                        document.getElementById('estado-mic-cam').textContent = 'No se pudo acceder al micrófono y/o la camara. Revisá los permisos.';
+                        document.getElementById('estado-mic-cam').textContent = 
+                            'No se pudo acceder al micrófono y/o la camara. Revisá los permisos.';
                         document.getElementById('estado-mic-cam').style.color = 'red';
                     });
             }
         }
 
-        const instrucciones = {
-            type: jsPsychHtmlButtonResponse,
-            stimulus: /*html*/ `
-        <h2>Instrucciones</h2>
-        <h3>Tu tarea principal sera describir lo que ves en las imagenes con el mayor detalle posible en 1 minuto</h3> 
-        <p>1. Presioná <b>Grabar</b> y describí lo que ves.</p>
-        <p>2. Cuando termines, presioná <b>Parar</b>. Esto va a parar la grabacion y enviarla</p>
-        <p>3. Presioná <b>Siguiente</b> para pasar a la siguiente imagen.</p>
-    `, // cambiar el tiempo
-            choices: ['Entendido, continuar']
-        }
+        const instrucciones_1 = crearInstrucciones(
+            'Instrucciones Parte 1a',
+            [
+                'Describí todo lo que está pasando en la imagen en 1 minuto. Pensá que se la estás describiendo a alguien que no puede verla.',
+                'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados y pasar a la siguiente imagen.',
+                'Si te excedés del tiempo, el experimento pasará directamente a la siguiente imagen.'
+            ]
+        );
 
-        const lamina_original = { // aca hay que grabar el audio y el video - deberia grabarlo en conjunto o separado??
+        const parte1_medio = crearInstrucciones(
+            'Parte 1b',
+            ['Como en la Parte 1a describí todo lo que está pasando en la imagen en 1 minuto, como si se la explicaras a alguien que no puede verla.'],
+            'Siguiente'
+        );
+
+        const instrucciones_2 = crearInstrucciones(
+            'Instrucciones Parte 2',
+            [
+                'Desarrollá una historia con inicio, desarrollo y desenlace basada en lo que ves.',
+                'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados.',
+                'Si te excedés del tiempo, el experimento pasará directamente a la siguiente parte.'
+            ]
+        );
+
+        const instrucciones_3 = crearInstrucciones(
+            'Instrucciones Parte 3',
+            [
+                'Esta ultima parte consiste de varias subpartes. En cada una te pedimos que en 1 minuto nos cuentes una memoria situada en un momento especifico de tu vida',
+                'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados.',
+                'Si te excedés del tiempo, el experimento pasará directamente a la siguiente consigna.'
+            ]
+        );
+
+        const lamina_cookie_original = crearTrialImagen('lamina_original.jpeg', 'lamina_cookie_original', 60);
+        const lamina_cookie_nueva = crearTrialImagen('lamina_nueva.png', 'lamina_cookie_nueva', 60);
+        const lamina_bombero = crearTrialImagen('lamina_bombero.png', 'lamina_bombero', 60);
+        const bloque_laminas_aleatorio = jsPsych.randomization.shuffle([lamina_cookie_original, lamina_cookie_nueva]);
+        const autobiografica_1 = crearTrialMemoria('autobiografica_1', 'tu <b>infancia</b> (hasta las 12 años)', 60)
+        const autobiografica_2 = crearTrialMemoria('autobiografica_2', 'tu <b>adolescencia</b> (desde los 12 hasta los 20)', 60)
+        const autobiografica_3 = crearTrialMemoria('autobiografica_3', 'tu <b>adultez temprana</b> (desde los 20 hasta los 39)', 60)
+        const autobiografica_4 = crearTrialMemoria('autobiografica_4', 'tu <b>adultez media</b> (desde los 39 hasta los 65)', 60)
+        const autobiografica_5 = crearTrialMemoria('autobiografica_5', 'el <b>año pasado</b>', 60)
+
+        const pregunta_edad = {
             type: jsPsychHtmlButtonResponse,
-            stimulus: /*html*/ `
-        <h2>Imagen a Describir 1 </h2>
-        <p> Recorda que tenes un minuto para describir todo lo que ves. La grabacion va a parar autoomaticamente una vez alcanzado
-            este tiempo</p>
-        <img 
-            src="imagenes/lamina_original.jpeg" 
-            style="width: 700px; border-radius: 10px; margin: 20px 0;"
-        >
-    `, // cambiar el tiempo
-            choices: ['Enviar']
-        }
+            stimulus: '<h2>Antes de continuar:</h2><p style="font-size: 1.2rem;">¿Tenés 40 años o más?</p>',
+            choices: ['No, tengo menos de 40', 'Sí, tengo 40 o más'],
+            data: { tipo_trial: 'filtro_edad' }
+        };
+
+        const nodo_adultez_media = {
+            timeline: [autobiografica_4],
+            conditional_function: function() {
+                const datos_edad = jsPsych.data.get().last(1).values()[0];
+                if (datos_edad.response === 1) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        };
 
         const fin = {
             type: jsPsychHtmlButtonResponse,
             stimulus: '<h1>¡Muchas gracias!</h1><p>Tus respuestas fueron guardadas.</p>',
-            choices: []
+            choices: [],
+            on_load: function () {
+                apagarCamaraYMicofono();
+                // add end experiment in platform (Data Pruebas)
+            }
         }
 
-        jsPsych.run([consentimiento, bienvenida, pantalla, calibracion, instrucciones, lamina_original, fin]);
+        jsPsych.run([
+            bienvenida,
+            pantalla,
+            calibracion,
+            instrucciones_1,
+            bloque_laminas_aleatorio[0],
+            parte1_medio,
+            bloque_laminas_aleatorio[1],
+            instrucciones_2,
+            lamina_bombero,
+            instrucciones_3,
+            autobiografica_1,
+            autobiografica_2,
+            autobiografica_3,
+            pregunta_edad,
+            nodo_adultez_media,
+            autobiografica_5,
+            fin
+        ]);
     </script>
 </body>
 
