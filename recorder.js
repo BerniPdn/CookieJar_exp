@@ -15,15 +15,25 @@ function inicializarGrabador(stream) {
         return;
     }
 
-    // Formato estandar
-    const opciones = { mimeType: 'video/webm;codecs=vp9,opus' };
+    // Achicando el tamaño del video
+    const opciones = { 
+        mimeType: 'video/webm;codecs=vp8,opus',
+        videoBitsPerSecond: 150000
+    };
     
     try {
         grabadorMedia = new MediaRecorder(stream, opciones);
+        console.log("Grabador inicializado en tamaño reducido");
     } catch (e) {
         // Si falla usar el que tenga el navegador por defecto
         grabadorMedia = new MediaRecorder(stream);
-    }
+        console.warn("Fallo vp8, intentando configuración alternativa...", e);
+            try {
+                grabadorMedia = new MediaRecorder(stream, { videoBitsPerSecond: 150000 });
+            } catch (err) {
+                grabadorMedia = new MediaRecorder(stream);
+            }
+        }
 
     grabadorMedia.ondataavailable = function(evento) {
         if (evento.data && evento.data.size > 0) {
@@ -38,7 +48,7 @@ function inicializarGrabador(stream) {
                 }
             }
         }
-    };
+    }
 }
 
 function comenzarGrabacion() {
