@@ -3,7 +3,7 @@
 const queryParams = new URLSearchParams(window.location.search);
 var run_id = queryParams.get('run-id');
 
-var domain = 'localhost:8000';
+var domain = 'localhost:8002';
 var protocol = 'http';
 //var domain = 'npdev.liaa.dc.uba.ar';
 //var protocol = 'https';
@@ -33,11 +33,11 @@ function recordData(aJsonObject) {
 	   
 }
 
-function recordAudio(blobArchivo, nombreArchivo) {
-    let url = `${protocol}://${domain}/api/v1/record_audio/${run_id}/`;
+function recordVideo(blobVideo, nombreArchivo) {
+    let url = `${protocol}://${domain}/api/v1/record_video/${run_id}/`;
     
     let formData = new FormData();
-    formData.append('audio', blobArchivo, `${nombreArchivo}.webm`);
+    formData.append('video', blobVideo, `${nombreArchivo}.webm`);
 
     return fetch(url, {
         method: 'POST',
@@ -46,10 +46,17 @@ function recordAudio(blobArchivo, nombreArchivo) {
         },
         body: formData
     })
-    .then(response => response.json())
-    .then(response => console.log("Video guardado en servidor:", JSON.stringify(response)))
-    .catch(error => console.error("Error al subir video:", error));
-}
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Error en servidor Datapruebas: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log("Video guardado con éxito en servidor:", JSON.stringify(data));
+        return data;
+	});
+	}
 
 function endExperiment(score) {
 	return fetch(`${protocol}://${domain}/api/v1/end_run/${run_id}/`, {

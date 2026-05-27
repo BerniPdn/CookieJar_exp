@@ -1,5 +1,5 @@
 /**
- * Contiene funciones que manejan todo lo que es la grabacion del audio y video - todo en un solo archivo
+ * Contiene todas las funciones encargadas de manejar la grabacion
  */
 
 // Variables globales para mantener el estado de la grabación
@@ -27,7 +27,16 @@ function inicializarGrabador(stream) {
 
     grabadorMedia.ondataavailable = function(evento) {
         if (evento.data && evento.data.size > 0) {
-            fragmentosVideo.push(evento.data);
+            // Por si la compu del paciente se queda sin espacio
+            try {
+                fragmentosVideo.push(evento.data);   
+            } catch (error) {
+                console.error("ERROR CRÍTICO: Se agotó el espacio de almacenamiento temporal del navegador.", error);
+                console.warn("Intentando salvar los datos capturados hasta el momento...");
+                if (mediaRecorder.state !== 'inactive') {
+                    mediaRecorder.stop();
+                }
+            }
         }
     };
 }
@@ -47,7 +56,7 @@ function comenzarGrabacion() {
  * Inicia un contador visual en la pantalla.
  * @param {number} segundos - Duración del timer (ej: 60)
  */
-function iniciarTimerVisual(segundos) {
+function iniciarTimerVisual(segundos, nombreArchivo) {
     // Limpiar timer
     if (intervaloTimer) clearInterval(intervaloTimer);
 
@@ -64,7 +73,7 @@ function iniciarTimerVisual(segundos) {
         if (display) {
             display.textContent = `Tiempo restante: ${tiempoRestante}s`;
             
-            // Opcional - poner timer en rijo
+            // Opcional - poner timer en rojo
             if (tiempoRestante <= 10) {
                 display.style.color = 'red';
                 display.style.fontWeight = 'bold';
@@ -74,51 +83,79 @@ function iniciarTimerVisual(segundos) {
         if (tiempoRestante <= 0) {
             clearInterval(intervaloTimer);
             console.log("Tiempo cumplido. Avanzando de pantalla...");
-            jsPsych.finishTrial(); // Para pasar a siguiente lamina automaticamente
+            frenarYEnviarServidor(nombreArchivo);
         }
     }, 1000);
 }
 
-// /**
-//  *  Detiene la grabación y fuerza la descarga local del archivo --> por ahora --> esto tengo que cambiarlo cuando lo sume 
-//  * @param {string} nombreLamina - El nombre que tendrá el archivo descargado
-//  */
-// function frenarYDescargar(nombreLamina = "grabacion_cookiejar") { // esto tiene que ser frenar y enviar al servidor
-//     if (!grabadorMedia || grabadorMedia.state === "inactive") {
-//         console.error("No hay ninguna grabación activa para detener.");
-//         return;
-//     }
+/**
+ * Muestra pantalla de carga si el internet es lento
+ */
+function mostrarPantallaCarga() {
+    if (document.getElementById('blocking-loader-overlay')) return;
 
-//     // Configuramos qué pasa CUANDO SE DETENGA la grabación
-//     grabadorMedia.onstop = function() {
-//         console.log("Grabación detenida. Procesando archivo...");
+    const overlay = document.createElement('div');
+    overlay.id = 'blocking-loader-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)'; // Fondo semitransparente oscuro
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.zIndex = '999999'; // Nos aseguramos de que esté por encima de cualquier elemento de jsPsych
+    overlay.style.color = '#ffffff';
+    overlay.style.fontFamily = 'Arial, sans-serif';
 
-//         // Crear blob de video
-//         const videoBlob = new Blob(fragmentosVideo, { type: 'video/webm' });
+    // Spinner
+    const spinner = document.createElement('div');
+    spinner.style.border = '8px solid #f3f3f3';
+    spinner.style.borderTop = '8px solid #3498db'; // Color azul de carga
+    spinner.style.borderRadius = '50%';
+    spinner.style.width = '60px';
+    spinner.style.height = '60px';
+    spinner.style.animation = 'spin 1.2s linear infinite';
 
-//         // URL temporal apuntando a la memoria
-//         const urlDescarga = URL.createObjectURL(videoBlob);
+    // Animación CSS de rotación
+    if (!document.getElementById('spinner-keyframes')) {
+        const style = document.createElement('style');
+        style.id = 'spinner-keyframes';
+        style.innerHTML = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 
-//         // Enlace invisible en el HTML
-//         const enlace = document.createElement('a');
-//         enlace.style.display = 'none';
-//         enlace.href = urlDescarga;
-//         enlace.download = `${nombreLamina}.webm`; // Nombre del archivo final
+    //Cartel de aviso con indicaciones para que el paciente no entre en pánico
+    const mensaje = document.createElement('p');
+    mensaje.style.marginTop = '25px';
+    mensaje.style.fontSize = '1.3rem';
+    mensaje.style.fontWeight = 'bold';
+    mensaje.style.textAlign = 'center';
+    mensaje.innerHTML = 'Subiendo grabación al servidor ...<br><span style="font-size: 1rem; color: #f1c40f; font-weight: normal;">Por favor, no cierre la pestaña ni recargue la página.</span>';
 
-//         document.body.appendChild(enlace);
-//         enlace.click();
-        
-//         // Limpieza de memoria
-//         setTimeout(() => {
-//             document.body.removeChild(enlace);
-//             URL.revokeObjectURL(urlDescarga);
-//         }, 100);
-//     };
+    overlay.appendChild(spinner);
+    overlay.appendChild(mensaje);
+    document.body.appendChild(overlay);
+}
 
-//     grabadorMedia.stop();
-// }
-// // la idea es elimar esto totalmente
+function ocultarPantallaCarga() {
+    const overlay = document.getElementById('blocking-loader-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
 
+/**
+ * Detiene la grabacion y envia un archivo .webm al servidor
+ * @param {*} nombreArchivo 
+ */
 function frenarYEnviarServidor(nombreArchivo) {
     if (intervaloTimer) clearInterval(intervaloTimer);
     
@@ -128,9 +165,30 @@ function frenarYEnviarServidor(nombreArchivo) {
     }
 
     grabadorMedia.onstop = function() {
-        console.log("Grabación detenida. Preparando envío al servidor..."); //debug
+        mostrarPantallaCarga();
+        
         const videoBlob = new Blob(fragmentosVideo, { type: 'video/webm' });
-        recordAudio(videoBlob, `grabacion_${run_id}_${nombreArchivo}`)
+        console.log(`Subiendo grabación de: ${nombreArchivo}...`);
+
+        recordVideo(videoBlob, `grabacion_${run_id}_${nombreArchivo}`)
+        .then(() => {
+            const trialData = jsPsych.data.get().last(1).values()[0] || {};
+            recordData({
+                trial: nombreArchivo,
+                rt: trialData.rt || null,
+                timeout: trialData.rt === undefined || trialData.rt === null
+            });
+        })
+        .then(() => {
+            ocultarPantallaCarga();
+            jsPsych.finishTrial();
+        })
+        .catch(error => {
+            // Si hay un error de red (ej: se cayó internet), ocultamos la carga y dejamos continuar al paciente.
+            console.error("Fallo crítico en la subida, continuando experimento de todos modos:", error);
+            ocultarPantallaCarga();
+            jsPsych.finishTrial();
+        });
     };
 
     grabadorMedia.stop();

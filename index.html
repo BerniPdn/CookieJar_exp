@@ -16,12 +16,40 @@
     <script>
 
         const jsPsych = initJsPsych();
+        //Seguro anti-cierre de pestaña
+        window.addEventListener('beforeunload', function (e) {
+            if (jsPsych.getProgress().current_trial_global < 16) {  // este numero depende de la cantidad de pantallas
+                e.preventDefault();
+            }
+        });
+        
         if (!run_id) {
             console.warn("ALERTA: No se detectó ningún 'run-id' en la URL. Las llamadas a la API van a fallar.");
+            
+            //Aviso al paciente para que el experimento no corra - poco probable que esto pase
+            document.body.innerHTML = `
+                <div style="text-align: center; margin-top: 100px; font-family: sans-serif; padding: 20px;">
+                    <h2 style="color: #cc0000;">Error de inicialización</h2>
+                    <p style="font-size: 1.1rem; color: #333;">El experimento no se inició a través de la plataforma Datapruebas (en este caso mi servidor).</p>
+                    <p style="color: #666;">Por favor, vuelve a ingresar desde el panel de paciente de la plataforma.</p>
+                </div>
+            `;
+            throw new Error("Ejecución detenida: Falta run-id en la URL.");
+
         }
-
+       
+        //
         // Helpers
+        //
 
+        /**
+         * Crea un trial de jsPsych que muestra una imagen de estímulo, 
+         * Inicia la grabación de audio/video y maneja el temporizador.
+         * @param {string} src - Dirección URL o ruta local de la imagen a utilizar.
+         * @param {string|null} [nombreArchivo=null] - Nombre base con el que se guardará el video en el servidor.
+         * @param {number} tiempo - Tiempo máximo en segundos que dura el trial antes de terminarse.
+         * @returns {Object} Devuelve el objeto de configuración del trial para el timeline de jsPsych.
+         */
         function crearTrialImagen(src, nombreArchivo = null, tiempo) {
             return {
                 type: jsPsychHtmlButtonResponse,
@@ -37,26 +65,33 @@
                     </div>
 
                     <img src="${src}" style="width: 700px; border-radius: 10px; margin: 20px 0;">
+
+                    <div style="margin-top: 20px;">
+                         <button type="button" id="btn-enviar-custom" class="jspsych-btn">Enviar</button>
+                    </div>
                 `,
-                choices: ['Enviar'],
-                trial_duration: tiempo * 1000,
+                choices: [],
                 on_load: () => { 
                     comenzarGrabacion()
-                    iniciarTimerVisual(tiempo);
+                    iniciarTimerVisual(tiempo, nombreArchivo);
+                    document.getElementById('btn-enviar-custom').addEventListener('click', function(e) {
+                        e.preventDefault()
+                        this.disabled = true;
+                        this.textContent = "Enviando..."
+                        frenarYEnviarServidor(nombreArchivo);
+                    });
                 },
-                on_finish: (data) => { 
-                    if (nombreArchivo) {
-                        frenarYEnviarServidor(nombreArchivo); 
-                        recordData({
-                            trial: nombreArchivo,
-                            rt: data.rt,
-                            timeout: data.rt === null
-                        });
-                    }
-                }
-            };
+            }
         }
 
+        /**
+         * Crea un trial de jsPsych para la tarea de memoria autobiográfica situada.
+         * Inicia la grabación, maneja el temporizador visual y guarda metadatos específicos del período.
+         * @param {string} nombreArchivo - Nombre base con el que se guardará el video en el servidor.
+         * @param {string} periodo - El período de tiempo solicitado (ej: 'la niñez', 'el último año').
+         * @param {number} tiempo - Tiempo máximo en segundos que dura el relato antes de terminarse.
+         * @returns {Object} Devuelve el objeto de configuración del trial para el timeline de jsPsych.
+         */
         function crearTrialMemoria(nombreArchivo, periodo, tiempo) {
             return {
                 type: jsPsychHtmlButtonResponse,
@@ -72,27 +107,33 @@
                     </div>
 
                     <p style="text-align: center; margin-top: 20px;"> ¿Puedes contarnos sobre un evento en un lugar y tiempo especifico situado en: ${periodo}? </p>
+                    
+                    <div style="margin-top: 20px;">
+                        <button type="button" id="btn-enviar-custom" class="jspsych-btn">Enviar</button>
+                    </div>
                 `,
-                choices: ['Enviar'],
-                trial_duration: tiempo * 1000,
+                choices: [],
+                data: { trial_id: nombreArchivo, periodo_solicitado: periodo },
                 on_load: () => { 
                     comenzarGrabacion()
-                    iniciarTimerVisual(tiempo);
-                },
-                data: { trial_id: nombreArchivo, periodo_solicitado: periodo },
-                on_finish: (data) => { 
-                    if (nombreArchivo) {
-                        frenarYEnviarServidor(nombreArchivo); 
-                        recordData({
-                            trial: nombreArchivo,
-                            rt: data.rt,
-                            timeout: data.rt === null
-                        });
-                    }
+                    iniciarTimerVisual(tiempo, nombreArchivo);
+                    document.getElementById('btn-enviar-custom').addEventListener('click', function(e) {
+                        e.preventDefault()
+                        this.disabled = true;
+                        this.textContent = "Enviando..."
+                        frenarYEnviarServidor(nombreArchivo);
+                    });
                 }
             };
         }
 
+        /**
+         * Crea un trial de jsPsych estático para mostrar pantallas de instrucciones o textos informativos.
+         * @param {string} titulo - El título principal
+         * @param {string[]} parrafos - Un arreglo de strings, donde cada elemento es un párrafo o instrucción.
+         * @param {string} [boton='Entendido, continuar'].
+         * @returns {Object} Devuelve el objeto de configuración del trial para el timeline de jsPsych.
+         */
         function crearInstrucciones(titulo, parrafos, boton = 'Entendido, continuar') {
             const items = parrafos.map((p, i) => `<p>${i + 1}. ${p}</p>`).join('');
             return {
@@ -101,9 +142,9 @@
                 choices: [boton]
             };
         }
-
-         // Trials
-
+        //
+        // Trials estaticos
+        //
         const bienvenida = {
             type: jsPsychHtmlButtonResponse,
             stimulus: /*html*/ `
@@ -214,23 +255,30 @@
                         const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
                         // Calibracion del audio
+                        let volumenSuave = 0;
                         function updateBar() {
-                            analyser.getByteFrequencyData(dataArray);
-
-                            // Promedio de volumen de todo sonido captado por el microfono
-                            let sum = 0;
+                            const barra = document.getElementById('barra-audio');
+                            if (!barra) return;
+                           
+                            analyser.getByteTimeDomainData(dataArray);
+                        
+                            let sumSquaredDifferences = 0;
                             for (let i = 0; i < dataArray.length; i++) {
-                                sum += dataArray[i];
+                                const dev = dataArray[i] - 128;
+                                sumSquaredDifferences += dev * dev;
                             }
-                            const promedio = sum / dataArray.length;
+                            
+                            const meanSquare = sumSquaredDifferences / dataArray.length;
+                            const rms = Math.sqrt(meanSquare);
 
-                            // Promedio de sonidos - tratando de account for el ruioo de fondo
-                            const porcentaje = Math.max(0, Math.min((promedio - 30) * 3, 100)); //Fijarse si el 40 sirve
+                            const porcentajeInstantaneo = Math.max(0, Math.min(rms * 2.8, 100));
+                            const factorSuavizado = 0.15;
+                            volumenSuave = (volumenSuave * (1 - factorSuavizado)) + (porcentajeInstantaneo * factorSuavizado);
 
-                            document.getElementById('barra-audio').style.width = porcentaje + '%';
+                            barra.style.width = volumenSuave + '%';
 
                             //Habilitar boton si el promedio se mueve bien con la voz
-                            if (porcentaje > 40) {
+                            if (volumenSuave > 25) {
                                 document.getElementById('btn-calibracion').disabled = false;
                             }
 
@@ -246,7 +294,10 @@
                     });
             }
         }
-
+        
+        //
+        //Configuracion de las plantillas de instrucciones
+        //
         const instrucciones_1 = crearInstrucciones(
             'Instrucciones Parte 1.a',
             [
@@ -279,17 +330,26 @@
                 'Si te excedés del tiempo, el experimento pasará directamente a la siguiente consigna.'
             ]
         );
-
+       
+        //
+        // Bloque 1 y 2: Estimulos de Imagenes
+        //
         const lamina_cookie_original = crearTrialImagen('lamina_original.jpeg', 'lamina_cookie_original', 60);
         const lamina_cookie_nueva = crearTrialImagen('lamina_nueva.png', 'lamina_cookie_nueva', 60);
         const lamina_bombero = crearTrialImagen('lamina_bombero.png', 'lamina_bombero', 60);
+        // Aleatorización de las dos variantes de CookieJar (Original vs Nueva)
         const bloque_laminas_aleatorio = jsPsych.randomization.shuffle([lamina_cookie_original, lamina_cookie_nueva]);
+        
+        //
+        //Bloque 3: Tareas de memoria autobigrafica
+        //
         const autobiografica_1 = crearTrialMemoria('autobiografica_1', 'tu <b>infancia</b> (hasta las 12 años)', 60)
         const autobiografica_2 = crearTrialMemoria('autobiografica_2', 'tu <b>adolescencia</b> (desde los 12 hasta los 20)', 60)
         const autobiografica_3 = crearTrialMemoria('autobiografica_3', 'tu <b>adultez temprana</b> (desde los 20 hasta los 39)', 60)
         const autobiografica_4 = crearTrialMemoria('autobiografica_4', 'tu <b>adultez media</b> (desde los 39 hasta los 65)', 60)
         const autobiografica_5 = crearTrialMemoria('autobiografica_5', 'el <b>año pasado</b>', 60)
-
+        
+        // Lógica condicional: Filtro para mayores de 40 años (Adultez Media)
         const pregunta_edad = {
             type: jsPsychHtmlButtonResponse,
             stimulus: '<h2>Antes de continuar:</h2><p style="font-size: 1.2rem;">¿Tenés 40 años o más?</p>',
@@ -300,15 +360,16 @@
         const nodo_adultez_media = {
             timeline: [autobiografica_4],
             conditional_function: function() {
-                const datos_edad = jsPsych.data.get().last(1).values()[0];
-                if (datos_edad.response === 1) {
-                    return true;
+                const ensayo_edad = jsPsych.data.get().filter({ tipo_trial: 'filtro_edad' }).values()[0];
+                if (ensayo_edad && ensayo_edad.response === 1) {
+                    return true; 
                 } else {
                     return false;
                 }
             }
         };
-
+        
+        // Pagina final de cierre y guardado
         const fin = {
             type: jsPsychHtmlButtonResponse,
             stimulus: '<h1>¡Muchas gracias!</h1><p>Tus respuestas fueron guardadas.</p>',
