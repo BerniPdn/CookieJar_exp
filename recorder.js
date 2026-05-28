@@ -18,20 +18,22 @@ function inicializarGrabador(stream) {
     // Achicando el tamaño del video
     const opciones = { 
         mimeType: 'video/webm;codecs=vp8,opus',
-        videoBitsPerSecond: 150000
+        videoBitsPerSecond: 5000000
     };
     
     try {
         grabadorMedia = new MediaRecorder(stream, opciones);
-        console.log("Grabador inicializado en tamaño reducido");
+        console.log("Grabador inicializado en maxima calidad");
     } catch (e) {
         // Si falla usar el que tenga el navegador por defecto
         grabadorMedia = new MediaRecorder(stream);
-        console.warn("Fallo vp8, intentando configuración alternativa...", e);
+        console.warn("Fallo plan A (vp8), intentando Plan B de alta calidad sin códec forzado", e);
             try {
-                grabadorMedia = new MediaRecorder(stream, { videoBitsPerSecond: 150000 });
+                grabadorMedia = new MediaRecorder(stream, { videoBitsPerSecond: 5000000 });
+                console.log("Grabador inicializado en Alta Calidad")
             } catch (err) {
                 grabadorMedia = new MediaRecorder(stream);
+                console.error("Fallo plan B. Inicializado en modo por defecto del navegador", err);
             }
         }
 

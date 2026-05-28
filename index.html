@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/jspsych@8.2.3"></script>
     <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2.0.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2.0.0"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-multi-choice@2.0.0"></script>
     <link href="https://unpkg.com/jspsych@8.2.3/css/jspsych.css" rel="stylesheet">
     <script src="runtime.js"></script>
     <script src="recorder.js"></script>
@@ -18,9 +19,7 @@
         const jsPsych = initJsPsych();
         //Seguro anti-cierre de pestaña
         window.addEventListener('beforeunload', function (e) {
-            if (jsPsych.getProgress().current_trial_global < 16) {  // este numero depende de la cantidad de pantallas
-                e.preventDefault();
-            }
+            if (jsPsych.getProgress().current_trial_global < 16) e.preventDefault();
         });
         
         if (!run_id) {
@@ -140,6 +139,137 @@
                 type: jsPsychHtmlButtonResponse,
                 stimulus: `<h2>${titulo}</h2>${items}`,
                 choices: [boton]
+            };
+        }
+        /**
+         * Crea un trial unificado de evaluación emocional (Valencia y Arousal) utilizando emojis modernos.
+         * @param {string} [fase='post_bombero_oasis_strict'] - Etiqueta para identificar la fase en la base de datos.
+         * @returns {Object} Configuración del trial para el timeline de jsPsych.
+         */
+        function crearTrialEvaluacionEmocional(fase = 'post_bombero_oasis_strict') {
+            return {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: function() {
+                    
+                    if (!document.getElementById('oasis-styles')) {
+                        const styleNode = document.createElement('style');
+                        styleNode.id = 'oasis-styles';
+                        styleNode.innerHTML = `
+                            .o-con { font-family: 'Segoe UI', -apple-system, sans-serif; max-width: 850px; margin: 0 auto; text-align: center; padding: 10px; }
+                            .o-title { color: #1e293b; margin-bottom: 35px; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; }
+                            .o-card { background: #ffffff; padding: 30px 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; margin-bottom: 40px; }
+                            .o-h3 { color: #0f172a; margin: 0 0 8px 0; font-size: 1.4rem; font-weight: 700; }
+                            .o-p { color: #64748b; margin: 0 0 25px 0; font-size: 1.05rem; font-weight: 500; }
+                            .o-grid { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+                            .o-label { flex: 1; text-align: center; cursor: pointer; padding: 12px 4px; border-radius: 12px; transition: background 0.2s; }
+                            .o-emoji { font-size: 1.8rem; display: block; margin-bottom: 8px; }
+                            .o-radio { margin-bottom: 12px; transform: scale(1.3); }
+                            .o-txt { font-size: 0.75rem; color: #1e293b; display: block; line-height: 1.2; }
+                        `;
+                        document.head.appendChild(styleNode);
+                    }
+                    const val_opciones = [
+                        ["🤬", "Muy malo /", "negativo"], ["😟", "Bastante", "malo"], ["🙁", "Un poco", "malo"],
+                        ["😐", "Neutro", ""], ["🙂", "Un poco", "bueno"], ["😀", "Bastante", "bueno"], ["🚀", "Muy bueno /", "positivo"]
+                    ];
+                    
+                    const aro_opciones = [
+                        ["😴", "Muy bajo", "(Calmo)"], ["🥱", "Bastante", "bajo"], ["☕", "Un poco", "bajo"],
+                        ["🧘", "Ni bajo", "ni alto"], ["👀", "Un poco", "alto"], ["🔥", "Bastante", "alto"], ["💥", "Muy alto", "(Activado)"]
+                    ];
+
+                    const genColumnas = (name, opciones) => opciones.map((opt, i) => `
+                        <label class="o-label">
+                            <span class="o-emoji">${opt[0]}</span>
+                            <input type="radio" name="${name}" value="${i+1}" class="o-radio"><br>
+                            <span class="o-txt" style="font-weight: ${i===0||i===3||i===6 ? '700':'500'};">
+                                ${opt[1]}${opt[2] ? '<br>'+opt[2] : ''}
+                            </span>
+                        </label>
+                    `).join('');
+
+                    return `
+                    <div class="o-con">
+                        <h2 class="o-title">Evaluación Emocional</h2>
+                        <form id="oasis-form">
+                            <div class="o-card">
+                                <h3 class="o-h3">VALENCIA</h3>
+                                <p class="o-p">¿Cómo describirías tu estado de ánimo en este preciso momento?</p>
+                                <div class="o-grid">
+                                    ${genColumnas('oasis_valence', val_opciones)}
+                                </div>
+                            </div>
+                            <div class="o-card" style="margin-bottom: 35px;">
+                                <h3 class="o-h3">ACTIVACIÓN</h3>
+                                <p class="o-p">¿Cómo sentís tu nivel de energía o activación corporal en este preciso momento?</p>
+                                <div class="o-grid">
+                                    ${genColumnas('oasis_arousal', aro_opciones)}
+                                </div>
+                            </div>
+                        </form>
+                    </div>`;
+                },
+                choices: ['Guardar y continuar'], 
+                on_load: function() {
+                    const btnEnviar = document.querySelector('.jspsych-btn');
+                    
+                    if (btnEnviar) {
+                        btnEnviar.disabled = true;
+                        btnEnviar.style.opacity = '0.5';
+                        btnEnviar.style.cursor = 'not-allowed';
+                    }
+
+                    function validarRespuestas() {
+                        const btnEnviar = document.querySelector('.jspsych-btn');
+
+                        const v_checked = document.querySelector('input[name="oasis_valence"]:checked');
+                        const a_checked = document.querySelector('input[name="oasis_arousal"]:checked');
+                        
+                        if (btnEnviar) {
+                            if (v_checked && a_checked) {
+                                btnEnviar.disabled = false;
+                                btnEnviar.style.opacity = '1';
+                                btnEnviar.style.cursor = 'pointer';
+                            } else {
+                                btnEnviar.disabled = true;
+                                btnEnviar.style.opacity = '0.5';
+                                btnEnviar.style.cursor = 'not-allowed';
+                            }
+                        }
+                    }
+                                        
+                    document.querySelectorAll('#oasis-form .o-label').forEach(label => {
+                        label.addEventListener('mouseenter', () => label.style.background = '#f1f5f9');
+                        label.addEventListener('mouseleave', () => {
+                            const radio = label.querySelector('input');
+                            if (radio && !radio.checked) label.style.background = 'transparent';
+                        });
+                        label.addEventListener('click', () => {
+                            const radio = label.querySelector('input');
+                            const name = radio.name;
+                            
+                            document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+                                const parent = r.closest('.o-label');
+                                parent.style.background = 'transparent';
+                                parent.style.boxShadow = 'none';
+                            });
+
+                            radio.checked = true;
+
+                            label.style.background = '#e2e8f0';
+                            label.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
+
+                            validarRespuestas();
+                        });
+                    });
+                },
+                on_finish: function(data) {
+                    const v_selected = document.querySelector('input[name="oasis_valence"]:checked');
+                    const a_selected = document.querySelector('input[name="oasis_arousal"]:checked');
+                    data.oasis_valence = v_selected ? parseInt(v_selected.value) : null;
+                    data.oasis_arousal = a_selected ? parseInt(a_selected.value) : null;
+                    data.fase = fase;
+                }
             };
         }
         //
@@ -316,32 +446,32 @@
         const instrucciones_2 = crearInstrucciones(
             'Instrucciones Parte 2',
             [
-                'Desarrollá una historia con inicio, desarrollo y desenlace basada en lo que ves.',
-                'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados.',
-                'Si te excedés del tiempo, el experimento pasará directamente a la siguiente parte.'
-            ]
-        );
-
-        const instrucciones_3 = crearInstrucciones(
-            'Instrucciones Parte 3',
-            [
-                'Esta ultima parte consiste de varias subpartes. En cada una te pedimos que en 1 minuto nos cuentes una memoria situada en un momento especifico de tu vida',
-                'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados.',
+                'Esta parte consiste de varias subpartes. En cada una te pedimos que en 1 minuto nos cuentes una memoria situada en un momento especifico de tu vida',
+                'En cuanto veas cada pregunta el tiempo ha comenzado. Cuando termines, presioná <b>Enviar</b> para guardar tus resultados.',
                 'Si te excedés del tiempo, el experimento pasará directamente a la siguiente consigna.'
             ]
         );
        
+        const instrucciones_3 = crearInstrucciones(
+            'Instrucciones Parte 2a',
+            [
+                'Desarrolla una historia con inicio, desarrollo y desenlace basada en lo que ves.',
+                'Cuando termines, presioná <b>Enviar</b> para guardar tus resultados.',
+                'Si te excedés del tiempo, el experimento pasará directamente a la siguiente parte.',
+                'Cuando finalices con la imagen te pedimos que contestes un pequeño formulario.',
+            ]
+        );
+
         //
-        // Bloque 1 y 2: Estimulos de Imagenes
+        // Bloque 1 Cookie Jar
         //
         const lamina_cookie_original = crearTrialImagen('lamina_original.jpeg', 'lamina_cookie_original', 60);
-        const lamina_cookie_nueva = crearTrialImagen('lamina_nueva.png', 'lamina_cookie_nueva', 60);
-        const lamina_bombero = crearTrialImagen('lamina_bombero.png', 'lamina_bombero', 60);
+        const lamina_cookie_nueva = crearTrialImagen('lamina_nueva.png', 'lamina_cookie_nueva', 60)
         // Aleatorización de las dos variantes de CookieJar (Original vs Nueva)
         const bloque_laminas_aleatorio = jsPsych.randomization.shuffle([lamina_cookie_original, lamina_cookie_nueva]);
         
         //
-        //Bloque 3: Tareas de memoria autobigrafica
+        //Bloque 2: Tareas de memoria autobigrafica
         //
         const autobiografica_1 = crearTrialMemoria('autobiografica_1', 'tu <b>infancia</b> (hasta las 12 años)', 60)
         const autobiografica_2 = crearTrialMemoria('autobiografica_2', 'tu <b>adolescencia</b> (desde los 12 hasta los 20)', 60)
@@ -359,44 +489,47 @@
 
         const nodo_adultez_media = {
             timeline: [autobiografica_4],
-            conditional_function: function() {
+            conditional_function: () => {
                 const ensayo_edad = jsPsych.data.get().filter({ tipo_trial: 'filtro_edad' }).values()[0];
-                if (ensayo_edad && ensayo_edad.response === 1) {
-                    return true; 
-                } else {
-                    return false;
-                }
+                return ensayo_edad && ensayo_edad.response === 1;
             }
         };
         
+        //
+        //Bloque 3: Bombero - Estado de Animo
+        //
+        const lamina_bombero = crearTrialImagen('lamina_bombero.png', 'lamina_bombero', 60);
+        const evaluacion_sam_unificada = crearTrialEvaluacionEmocional('post_bombero_oasis_strict');
+
         // Pagina final de cierre y guardado
         const fin = {
             type: jsPsychHtmlButtonResponse,
             stimulus: '<h1>¡Muchas gracias!</h1><p>Tus respuestas fueron guardadas.</p>',
             choices: [],
-            on_load: function () {
+            on_load: () => {
                 apagarCamaraYMicofono();
-                finishExperiment()
+                finishExperiment();
             }
-        }
+        };
 
         jsPsych.run([
-            bienvenida,
-            pantalla,
-            calibracion,
-            instrucciones_1,
-            bloque_laminas_aleatorio[0],
-            parte1_medio,
-            bloque_laminas_aleatorio[1],
-            instrucciones_2,
-            lamina_bombero,
-            instrucciones_3,
-            autobiografica_1,
-            autobiografica_2,
-            autobiografica_3,
-            pregunta_edad,
-            nodo_adultez_media,
-            autobiografica_5,
+            // bienvenida,
+            // pantalla,
+            // calibracion,
+            // instrucciones_1,
+            // bloque_laminas_aleatorio[0],
+            // parte1_medio,
+            // bloque_laminas_aleatorio[1],
+            // instrucciones_2,
+            // autobiografica_1,
+            // autobiografica_2,
+            // autobiografica_3,
+            // pregunta_edad,
+            // nodo_adultez_media,
+            // autobiografica_5,
+            // instrucciones_3,
+            // lamina_bombero,
+            evaluacion_sam_unificada,
             fin
         ]);
     </script>
