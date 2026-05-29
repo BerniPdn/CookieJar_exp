@@ -30,7 +30,7 @@ function inicializarGrabador(stream) {
         grabadorMedia = new MediaRecorder(stream);
         console.warn("Fallo plan A (vp8), intentando Plan B de alta calidad sin códec forzado", e);
             try {
-                grabadorMedia = new MediaRecorder(stream, { videoBitsPerSecond: 5000000 });
+                grabadorMedia = new MediaRecorder(stream, { videoBitsPerSecond: 3000000 });
                 console.log("Grabador inicializado en Alta Calidad")
             } catch (err) {
                 grabadorMedia = new MediaRecorder(stream);
