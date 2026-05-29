@@ -3,10 +3,10 @@
 const queryParams = new URLSearchParams(window.location.search);
 var run_id = queryParams.get('run-id');
 
-var domain = 'localhost:8002';
-var protocol = 'http';
-//var domain = 'npdev.liaa.dc.uba.ar';
-//var protocol = 'https';
+// var domain = 'localhost:8002';
+// var protocol = 'http';
+var domain = 'npdev.liaa.dc.uba.ar';
+var protocol = 'https';
 
 
 /* Library */
@@ -28,9 +28,8 @@ function recordData(aJsonObject) {
 	    },
 	    body: JSON.stringify({ "data": aJsonObject })
 	})
-	   .then(response => response.json())
-	   .then(response => console.log(JSON.stringify(response)));
-	   
+	.then(response => response.json())
+	.then(response => console.log(JSON.stringify(response)));   
 }
 
 function recordVideo(blobVideo, nombreArchivo) {
@@ -56,7 +55,7 @@ function recordVideo(blobVideo, nombreArchivo) {
         console.log("Video guardado con éxito en servidor:", JSON.stringify(data));
         return data;
 	});
-	}
+}
 
 function endExperiment(score) {
 	return fetch(`${protocol}://${domain}/api/v1/end_run/${run_id}/`, {
