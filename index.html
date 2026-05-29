@@ -42,14 +42,10 @@
         //
 
         /**
-         * Crea un trial de jsPsych que muestra una imagen de estímulo, 
-         * Inicia la grabación de audio/video y maneja el temporizador.
-         * @param {string} src - Dirección URL o ruta local de la imagen a utilizar.
-         * @param {string|null} [nombreArchivo=null] - Nombre base con el que se guardará el video en el servidor.
-         * @param {number} tiempo - Tiempo máximo en segundos que dura el trial antes de terminarse.
-         * @returns {Object} Devuelve el objeto de configuración del trial para el timeline de jsPsych.
+         * Crea un trial de jsPsych que muestra una imagen de estímulo.
+         * Controla que la grabación y el timer inicien SOLO cuando la imagen está visible.
          */
-        function crearTrialImagen(src, nombreArchivo = null, tiempo) {
+         function crearTrialImagen(src, nombreArchivo = null, tiempo) {
             return {
                 type: jsPsychHtmlButtonResponse,
                 stimulus: /*html*/ `
@@ -58,25 +54,57 @@
                     </div>
                     
                     <div style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
-                        <span id="timer-display" style="font-size: 1.25rem; font-weight: bold; background: #eee; padding: 8px 15px; border-radius: 5px; color: #333; white-space: nowrap; border: 1px solid #ccc;">
+                        <span id="timer-display" style="font-size: 1.25rem; font-weight: bold; background: #eee; padding: 8px 15px; border-radius: 5px; color: #333; white-space: nowrap; border: 1px solid #ccc; visibility: hidden;">
                             Tiempo restante: ${tiempo}s
                         </span>
                     </div>
 
-                    <img src="${src}" style="width: 700px; border-radius: 10px; margin: 20px 0;">
+                    <img id="estimulo-imagen" src="${src}" style="width: 700px; border-radius: 10px; margin: 20px 0; opacity: 0; transition: opacity 0.3s ease;">
+
+                    <div id="loader-imagen-local" style="margin: 50px 0; font-size: 1.2rem; color: #555; font-weight: bold;">
+                        Cargando estímulo...
+                    </div>
 
                     <div style="margin-top: 20px;">
-                         <button type="button" id="btn-enviar-custom" class="jspsych-btn">Enviar</button>
+                         <button type="button" id="btn-enviar-custom" class="jspsych-btn" disabled style="opacity: 0.5; cursor: not-allowed;">Enviar</button>
                     </div>
                 `,
                 choices: [],
                 on_load: () => { 
-                    comenzarGrabacion()
-                    iniciarTimerVisual(tiempo, nombreArchivo);
-                    document.getElementById('btn-enviar-custom').addEventListener('click', function(e) {
-                        e.preventDefault()
+                    const img = document.getElementById('estimulo-imagen');
+                    const loader = document.getElementById('loader-imagen-local');
+                    const timerDisplay = document.getElementById('timer-display');
+                    const btnEnviar = document.getElementById('btn-enviar-custom');
+
+                    function dispararTrial() {
+                        console.log(`[Estímulo Imagen] Presentando: ${nombreArchivo}. Iniciando grabación...`);
+                        
+                        if (loader) loader.remove();
+                        img.style.opacity = '1';
+                        
+                        if (timerDisplay) timerDisplay.style.visibility = 'visible';
+                        if (btnEnviar) {
+                            btnEnviar.disabled = false;
+                            btnEnviar.style.opacity = '1';
+                            btnEnviar.style.cursor = 'pointer';
+                        }
+
+                        comenzarGrabacion();
+                        iniciarTimerVisual(tiempo, nombreArchivo);
+                    }
+
+                    if (img.complete && img.naturalWidth !== 0) {
+                        dispararTrial();
+                    } else {
+                        img.onload = function() {
+                            dispararTrial();
+                        };
+                    }
+
+                    btnEnviar.addEventListener('click', function(e) {
+                        e.preventDefault();
                         this.disabled = true;
-                        this.textContent = "Enviando..."
+                        this.textContent = "Enviando...";
                         frenarYEnviarServidor(nombreArchivo);
                     });
                 },
