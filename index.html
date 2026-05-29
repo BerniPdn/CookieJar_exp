@@ -530,11 +530,24 @@
         const evaluacion_sam_unificada = crearTrialEvaluacionEmocional('post_bombero_oasis_strict');
 
         // Pagina final de cierre y guardado
-        const fin = {
+        const pantalla_final = {
             type: jsPsychHtmlButtonResponse,
-            stimulus: '<h1>¡Muchas gracias!</h1><p>Tus respuestas fueron guardadas.</p>',
+            stimulus: `
+                <h2>¡Muchas gracias por participar!</h2>
+                <p>Hemos finalizado todas las tareas del experimento puedes cerrar esta pesataña. </p>
+            `,
             choices: [],
-            on_load: () => {
+            on_load: function() {
+                console.log("[Final] Verificando si quedan videos viajando en la fila...");
+                
+                mostrarPantallaCarga();
+
+                esperarQueTermineLaCola().then(() => {
+                    console.log("[Final] ¡La fila de videos se vació por completo! Todo a salvo en el servidor.");
+                    ocultarPantallaCarga(); 
+                });
+            },
+            on_finish: function() {
                 apagarCamaraYMicofono();
                 finishExperiment();
             }
@@ -558,7 +571,7 @@
             instrucciones_3,
             lamina_bombero,
             evaluacion_sam_unificada,
-            fin
+            pantalla_final
         ]);
     </script>
 </body>
